@@ -64,18 +64,20 @@ impl<'a> TowerShooter<'a> {
     }
 
     fn shoot_from(&self, commands: &mut Commands, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>, bullet_assets: &GameAssets) {    
+        let ctx = (commands, tower);
         if let Some(direction) = self.get_direction(tower, targets) {    
-            self.shoot_direction(commands, tower, direction, bullet_assets)
+            self.shoot_direction(ctx, direction, bullet_assets)
         }
         else { return };
     }
 
-    fn shoot_direction(&self, commands: &mut Commands, tower: &Tower, direction: Vec3, bullet_assets: &GameAssets) {
+    fn shoot_direction(&self, ctx: (&mut Commands,  &Tower), direction: Vec3, bullet_assets: &GameAssets) {
         let (model, bullet) = self.tower_type.get_bullet(direction, &bullet_assets);
-        self.spawn_bullet(commands, tower, model, bullet)
+        self.spawn_bullet(ctx, model, bullet)
     }
 
-    fn spawn_bullet(&self, commands: &mut Commands, tower: &Tower, model: Handle<Scene>, bullet: Bullet) {
+    fn spawn_bullet(&self, ctx: (&mut Commands,  &Tower), model: Handle<Scene>, bullet: Bullet) {
+        let (commands, tower) = ctx;
         commands.entity(self.entity).with_children(|commands| {
             commands
                 .spawn_bundle(SceneBundle {
@@ -98,8 +100,7 @@ fn tower_shooting(
     targets: Query<&GlobalTransform, With<Target>>,
     bullet_assets: Res<GameAssets>,
     time: Res<Time>,
-) {
-    
+) {    
     for (entity, mut tower, tower_type, transform) in &mut towers {
         let tower_shooter = TowerShooter::new(entity, &tower_type, &transform);
         tower.shooting_timer.tick(time.delta());
@@ -114,29 +115,38 @@ impl TowerType {
         Timer::from_seconds(duration, true)
     }
 
+    fn create_tower(&self, duration: f32) -> Tower {     
+        Tower {
+            shooting_timer: self.timer(duration),
+            bullet_offset: self.offset(),
+        }
+    }
+
+    fn create_bullet(&self, direction: Vec3, speed: f32) -> Bullet {     
+        Bullet {
+            direction,
+            speed: 2.5,
+        }
+    }
+
+    fn offset(&self) -> Vec3 {
+        Vec3::new(0.0, 0.6, 0.0)
+    }
+
     fn get_tower(&self, assets: &GameAssets) -> (Handle<Scene>, Tower) {
-        let offset = Vec3::new(0.0, 0.6, 0.0);
+        
         match self {
             TowerType::Tomato => (
                 assets.tomato_tower_scene.clone(),
-                Tower {
-                    shooting_timer: self.timer(1.0),
-                    bullet_offset: offset,
-                },
+                self.create_tower(1.0)
             ),
             TowerType::Potato => (
                 assets.potato_tower_scene.clone(),
-                Tower {
-                    shooting_timer: self.timer(2.0),
-                    bullet_offset: offset,
-                },
+                self.create_tower( 2.0)
             ),
             TowerType::Cabbage => (
                 assets.cabbage_tower_scene.clone(),
-                Tower {
-                    shooting_timer: self.timer(3.0),
-                    bullet_offset: offset,
-                },
+                self.create_tower( 3.0)
             ),
         }
     }
@@ -145,24 +155,15 @@ impl TowerType {
         match self {
             TowerType::Tomato => (
                 assets.tomato_scene.clone(),
-                Bullet {
-                    direction,
-                    speed: 3.5,
-                },
+                self.create_bullet(direction, 3.5)
             ),
             TowerType::Potato => (
                 assets.potato_scene.clone(),
-                Bullet {
-                    direction,
-                    speed: 6.5,
-                },
+                self.create_bullet(direction, 6.5)
             ),
             TowerType::Cabbage => (
                 assets.cabbage_scene.clone(),
-                Bullet {
-                    direction,
-                    speed: 2.5,
-                },
+                self.create_bullet(direction, 2.5)
             ),
         }
     }
