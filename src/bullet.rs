@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{*, tower::tower::Tower};
 
 #[derive(Reflect, Component, Default)]
 #[reflect(Component)]
@@ -21,9 +21,14 @@ impl Plugin for BulletPlugin {
             .register_type::<Lifetime>()
             .add_system(bullet_collision)
             .add_system(move_bullets)
-            .add_system(bullet_despawn);
+            .add_system(bullet_despawn);            
+    }
+
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
     }
 }
+
 fn bullet_despawn(
     mut commands: Commands,
     mut bullets: Query<(Entity, &mut Lifetime)>,

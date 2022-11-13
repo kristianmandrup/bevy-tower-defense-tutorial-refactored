@@ -6,6 +6,7 @@ pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1280.0;
 
 pub struct GameAssets {
+    bullet_scene: Handle<Scene>,
     tower_base_scene: Handle<Scene>,
     tomato_tower_scene: Handle<Scene>,
     tomato_scene: Handle<Scene>,
@@ -57,6 +58,7 @@ fn main() {
 
 fn asset_loading(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(GameAssets {
+        bullet_scene: assets.load("Tomato.glb#Scene0"),
         tower_base_scene: assets.load("TowerBase.glb#Scene0"),
         tomato_tower_scene: assets.load("TomatoTower.glb#Scene0"),
         tomato_scene: assets.load("Tomato.glb#Scene0"),
