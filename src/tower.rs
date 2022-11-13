@@ -1,4 +1,5 @@
 use bevy::{ecs::query::QuerySingleError, prelude::*};
+use std::option::Option;
 
 use crate::*;
 
@@ -22,11 +23,66 @@ pub struct TowerUIRoot;
 pub struct TowerPlugin;
 
 impl Plugin for TowerPlugin {
-    fn build(&self, app: &mut App) {
+    fn build<'a>(&self, app: &mut App) {
         app.register_type::<Tower>()
             .add_system(tower_shooting)
             .add_system(tower_button_clicked)
             .add_system(create_ui_on_selection);
+    }
+
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+}
+
+struct TowerShooter<'a> {
+    entity: Entity, 
+    tower_type: &'a TowerType, 
+    transform: &'a GlobalTransform
+}
+impl<'a> TowerShooter<'a> {
+    fn new(entity: Entity, tower_type: &'a TowerType, transform: &'a GlobalTransform) -> Self {
+        TowerShooter {
+            entity,
+            tower_type,
+            transform
+        }
+    }
+
+    fn get_bullet_spawn(&self, tower: &Tower) -> Vec3 {
+        self.transform.translation() + tower.bullet_offset
+    }        
+    
+    fn get_direction(&self, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>) -> Option<Vec3> {
+        let bullet_spawn: Vec3 = self.get_bullet_spawn(tower);
+        targets
+            .iter()
+            .min_by_key(|target_transform| {
+                FloatOrd(Vec3::distance(target_transform.translation(), bullet_spawn))
+            })
+            .map(|closest_target| closest_target.translation() - bullet_spawn)
+    }
+
+    fn shoot_from(&self, commands: &mut Commands, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>, bullet_assets: &GameAssets) {    
+        if let Some(direction) = self.get_direction(tower, targets) {
+    
+            let (model, bullet) = self.tower_type.get_bullet(direction, &bullet_assets);
+            
+            commands.entity(self.entity).with_children(|commands| {
+                commands
+                    .spawn_bundle(SceneBundle {
+                        scene: model,
+                        transform: Transform::from_translation(tower.bullet_offset),
+                        ..Default::default()
+                    })
+                    .insert(Lifetime {
+                        timer: Timer::from_seconds(10.0, false),
+                    })
+                    .insert(bullet)
+                    .insert(Name::new("Bullet"));
+            });        
+        }
+        else { return };
     }
 }
 
@@ -37,34 +93,12 @@ fn tower_shooting(
     bullet_assets: Res<GameAssets>,
     time: Res<Time>,
 ) {
-    for (tower_ent, mut tower, tower_type, transform) in &mut towers {
+    
+    for (entity, mut tower, tower_type, transform) in &mut towers {
+        let tower_shooter = TowerShooter::new( entity, &tower_type, &transform);
         tower.shooting_timer.tick(time.delta());
         if tower.shooting_timer.just_finished() {
-            let bullet_spawn = transform.translation() + tower.bullet_offset;
-
-            let direction = targets
-                .iter()
-                .min_by_key(|target_transform| {
-                    FloatOrd(Vec3::distance(target_transform.translation(), bullet_spawn))
-                })
-                .map(|closest_target| closest_target.translation() - bullet_spawn);
-
-            if let Some(direction) = direction {
-                let (model, bullet) = tower_type.get_bullet(direction, &bullet_assets);
-                commands.entity(tower_ent).with_children(|commands| {
-                    commands
-                        .spawn_bundle(SceneBundle {
-                            scene: model,
-                            transform: Transform::from_translation(tower.bullet_offset),
-                            ..Default::default()
-                        })
-                        .insert(Lifetime {
-                            timer: Timer::from_seconds(10.0, false),
-                        })
-                        .insert(bullet)
-                        .insert(Name::new("Bullet"));
-                });
-            }
+            tower_shooter.shoot_from( &mut commands, &tower, &targets, &bullet_assets)
         }
     }
 }
