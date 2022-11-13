@@ -1,5 +1,4 @@
 use bevy::{ecs::query::QuerySingleError, prelude::*};
-use std::option::Option;
 
 use crate::*;
 
@@ -35,64 +34,7 @@ impl Plugin for TowerPlugin {
     }
 }
 
-struct TowerShooter<'a> {
-    entity: Entity, 
-    tower_type: &'a TowerType, 
-    transform: &'a GlobalTransform
-}
-impl<'a> TowerShooter<'a> {
-    fn new(entity: Entity, tower_type: &'a TowerType, transform: &'a GlobalTransform) -> Self {
-        TowerShooter {
-            entity,
-            tower_type,
-            transform
-        }
-    }
 
-    fn get_bullet_spawn(&self, tower: &Tower) -> Vec3 {
-        self.transform.translation() + tower.bullet_offset
-    }        
-    
-    fn get_direction(&self, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>) -> Option<Vec3> {
-        let bullet_spawn: Vec3 = self.get_bullet_spawn(tower);
-        targets
-            .iter()
-            .min_by_key(|target_transform| {
-                FloatOrd(Vec3::distance(target_transform.translation(), bullet_spawn))
-            })
-            .map(|closest_target| closest_target.translation() - bullet_spawn)
-    }
-
-    fn shoot_from(&self, commands: &mut Commands, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>, bullet_assets: &GameAssets) {    
-        let ctx = (commands, tower);
-        if let Some(direction) = self.get_direction(tower, targets) {    
-            self.shoot_direction(ctx, direction, bullet_assets)
-        }
-        else { return };
-    }
-
-    fn shoot_direction(&self, ctx: (&mut Commands,  &Tower), direction: Vec3, bullet_assets: &GameAssets) {
-        let (model, bullet) = self.tower_type.get_bullet(direction, &bullet_assets);
-        self.spawn_bullet(ctx, model, bullet)
-    }
-
-    fn spawn_bullet(&self, ctx: (&mut Commands,  &Tower), model: Handle<Scene>, bullet: Bullet) {
-        let (commands, tower) = ctx;
-        commands.entity(self.entity).with_children(|commands| {
-            commands
-                .spawn_bundle(SceneBundle {
-                    scene: model,
-                    transform: Transform::from_translation(tower.bullet_offset),
-                    ..Default::default()
-                })
-                .insert(Lifetime {
-                    timer: Timer::from_seconds(10.0, false),
-                })
-                .insert(bullet)
-                .insert(Name::new("Bullet"));
-        });        
-    }
-}
 
 fn tower_shooting(
     mut commands: Commands,
@@ -100,12 +42,12 @@ fn tower_shooting(
     targets: Query<&GlobalTransform, With<Target>>,
     bullet_assets: Res<GameAssets>,
     time: Res<Time>,
-) {    
+) {
     for (entity, mut tower, tower_type, transform) in &mut towers {
         let tower_shooter = TowerShooter::new(entity, &tower_type, &transform);
         tower.shooting_timer.tick(time.delta());
         if tower.shooting_timer.just_finished() {
-            tower_shooter.shoot_from( &mut commands, &tower, &targets, &bullet_assets)
+            tower_shooter.shoot_from(&mut commands, &tower, &targets, &bullet_assets)
         }
     }
 }
@@ -151,7 +93,7 @@ impl TowerType {
         }
     }
 
-    fn get_bullet(&self, direction: Vec3, assets: &GameAssets) -> (Handle<Scene>, Bullet) {
+    pub fn get_bullet(&self, direction: Vec3, assets: &GameAssets) -> (Handle<Scene>, Bullet) {
         match self {
             TowerType::Tomato => (
                 assets.tomato_scene.clone(),

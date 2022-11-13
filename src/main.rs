@@ -19,10 +19,12 @@ pub struct GameAssets {
 mod bullet;
 mod target;
 mod tower;
+mod shooter;
 
 pub use bullet::*;
 pub use target::*;
 pub use tower::*;
+pub use shooter::*;
 
 fn main() {
     App::new()
