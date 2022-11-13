@@ -1,5 +1,8 @@
 use bevy::prelude::*;
+
 use crate::*;
+use super::tower::*;
+use super::tower_type::*;
 
 // #[derive(Component, Default)]
 pub struct TowerShooter<'a> {
