@@ -64,25 +64,31 @@ impl<'a> TowerShooter<'a> {
     }
 
     fn shoot_from(&self, commands: &mut Commands, tower: &Tower, targets: &Query<&GlobalTransform, With<Target>>, bullet_assets: &GameAssets) {    
-        if let Some(direction) = self.get_direction(tower, targets) {
-    
-            let (model, bullet) = self.tower_type.get_bullet(direction, &bullet_assets);
-            
-            commands.entity(self.entity).with_children(|commands| {
-                commands
-                    .spawn_bundle(SceneBundle {
-                        scene: model,
-                        transform: Transform::from_translation(tower.bullet_offset),
-                        ..Default::default()
-                    })
-                    .insert(Lifetime {
-                        timer: Timer::from_seconds(10.0, false),
-                    })
-                    .insert(bullet)
-                    .insert(Name::new("Bullet"));
-            });        
+        if let Some(direction) = self.get_direction(tower, targets) {    
+            self.shoot_direction(commands, tower, direction, bullet_assets)
         }
         else { return };
+    }
+
+    fn shoot_direction(&self, commands: &mut Commands, tower: &Tower, direction: Vec3, bullet_assets: &GameAssets) {
+        let (model, bullet) = self.tower_type.get_bullet(direction, &bullet_assets);
+        self.spawn_bullet(commands, tower, model, bullet)
+    }
+
+    fn spawn_bullet(&self, commands: &mut Commands, tower: &Tower, model: Handle<Scene>, bullet: Bullet) {
+        commands.entity(self.entity).with_children(|commands| {
+            commands
+                .spawn_bundle(SceneBundle {
+                    scene: model,
+                    transform: Transform::from_translation(tower.bullet_offset),
+                    ..Default::default()
+                })
+                .insert(Lifetime {
+                    timer: Timer::from_seconds(10.0, false),
+                })
+                .insert(bullet)
+                .insert(Name::new("Bullet"));
+        });        
     }
 }
 
@@ -95,7 +101,7 @@ fn tower_shooting(
 ) {
     
     for (entity, mut tower, tower_type, transform) in &mut towers {
-        let tower_shooter = TowerShooter::new( entity, &tower_type, &transform);
+        let tower_shooter = TowerShooter::new(entity, &tower_type, &transform);
         tower.shooting_timer.tick(time.delta());
         if tower.shooting_timer.just_finished() {
             tower_shooter.shoot_from( &mut commands, &tower, &targets, &bullet_assets)
